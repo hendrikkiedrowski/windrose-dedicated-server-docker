@@ -30,12 +30,69 @@ Self-hosted dedicated server for [Windrose](https://store.steampowered.com/app/2
 
 ---
 
+## Quick start (prebuilt image from GHCR)
+
+Use the published image if you do not want to build locally.
+
+Recommended (stable):
+
+```
+ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
+```
+
+Latest (testing/newest):
+
+```
+ghcr.io/uberdudepl/windrose-dedicated-server-docker:latest
+```
+
+### Minimal `docker-compose.yml` for users
+
+```yaml
+services:
+  windrose:
+    image: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
+    container_name: windrose
+    restart: unless-stopped
+    stop_grace_period: 90s
+    network_mode: host
+    env_file:
+      - .env
+    environment:
+      WINDROSE_APP_ID: 4129620
+      STEAM_LOGIN: ${STEAM_LOGIN:-anonymous}
+      STEAM_PASS: ${STEAM_PASS:-}
+      WINEDEBUG: -all
+      DISPLAY: :99
+      PORT: 7777
+      QUERYPORT: 7778
+    volumes:
+      - ./data:/data
+      - ./steam-home:/home/steam
+```
+
+`.env` example:
+
+```dotenv
+STEAM_LOGIN=anonymous
+STEAM_PASS=
+```
+
+Start:
+
+```bash
+docker compose up -d
+docker compose logs -f windrose
+```
+
+---
+
 ## Quick start
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/windrose-docker.git
-cd windrose-docker
+git clone https://github.com/UberDudePL/windrose-dedicated-server-docker.git
+cd windrose-dedicated-server-docker
 
 # 2. Set ownership (required for Wine to work inside the container)
 chown -R 1000:1000 .
@@ -184,6 +241,33 @@ windrose/
 | `ERROR! Failed to install app` | Check SteamCMD logs; ensure `STEAM_LOGIN=anonymous` is set |
 | Server not visible to players | Share the `InviteCode` from `ServerDescription.json` |
 | Config reset after restart | Edit JSON only when container is stopped |
+
+---
+
+## Versioning policy
+
+- Use `:latest` only for testing.
+- Use pinned tags like `:v1.0.0` for production/stable servers.
+- Create a new release tag when you change runtime behavior, dependencies, or startup logic.
+
+Release commands:
+
+```bash
+cd /windrose
+git fetch --all --tags
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+---
+
+## Public package and CI checklist
+
+1. GitHub -> Packages -> `windrose-dedicated-server-docker` -> set visibility to **Public**.
+2. Verify **Build and Publish Docker Image** workflow is green.
+3. Verify **Secret Scan** workflow is green.
+4. Confirm package tags exist (`latest`, `v*`, `sha-*`).
+5. Keep `.env`, `data/`, `steam-home/`, and `game/` untracked.
 
 ---
 
