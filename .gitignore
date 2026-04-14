@@ -12,6 +12,7 @@ game/
 # Chat / scratch files
 chat
 todo.md
+.vscode/
 
 # Docker build cache
 *.tar
