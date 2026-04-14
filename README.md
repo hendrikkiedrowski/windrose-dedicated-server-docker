@@ -280,6 +280,16 @@ git push origin v1.0.0
 
 ---
 
+## Support
+
+If this project saved you time and you want to support further maintenance, you can use:
+
+- Ko-fi: https://ko-fi.com/uberdudepl
+- PayPal: https://paypal.me/uberdudepl
+- Revolut: https://revolut.me/uberdudepl
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
