@@ -1,0 +1,20 @@
+# Server data and saves — do not commit
+data/
+steam-home/
+game/
+
+# Secrets
+.env
+
+# Config backups
+*.bak.*
+
+# Chat / scratch files
+chat
+
+# Docker build cache
+*.tar
+
+# OS
+.DS_Store
+Thumbs.db

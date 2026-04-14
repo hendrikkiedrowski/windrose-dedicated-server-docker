@@ -1,0 +1,16 @@
+# Do not include runtime data in the Docker build context
+data/
+steam-home/
+game/
+
+# Secrets
+.env
+
+# Config backups
+*.bak.*
+
+# Docs and scratch
+README.md
+chat
+.git
+.gitignore
