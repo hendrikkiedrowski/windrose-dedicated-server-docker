@@ -33,63 +33,6 @@ Self-hosted dedicated server for [Windrose](https://store.steampowered.com/app/2
 
 ---
 
-## Quick start (prebuilt image from GHCR)
-
-Use the published image if you do not want to build locally.
-
-Recommended (stable):
-
-```
-ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
-```
-
-Latest (testing/newest):
-
-```
-ghcr.io/uberdudepl/windrose-dedicated-server-docker:latest
-```
-
-### Minimal `docker-compose.yml` for users
-
-```yaml
-services:
-  windrose:
-    image: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
-    container_name: windrose
-    restart: unless-stopped
-    stop_grace_period: 90s
-    network_mode: host
-    env_file:
-      - .env
-    environment:
-      WINDROSE_APP_ID: 4129620
-      STEAM_LOGIN: ${STEAM_LOGIN:-anonymous}
-      STEAM_PASS: ${STEAM_PASS:-}
-      WINEDEBUG: -all
-      DISPLAY: :99
-      PORT: 7777
-      QUERYPORT: 7778
-    volumes:
-      - ./data:/data
-      - ./steam-home:/home/steam
-```
-
-`.env` example:
-
-```dotenv
-STEAM_LOGIN=anonymous
-STEAM_PASS=
-```
-
-Start:
-
-```bash
-docker compose up -d
-docker compose logs -f windrose
-```
-
----
-
 ## Quick start
 
 ```bash
@@ -100,48 +43,39 @@ cd windrose-dedicated-server-docker
 # 2. Copy the example environment file
 cp .env.example .env
 
-# 3. Start the server (downloads game files on first run ~3 GB)
+# 3. Edit basic values if needed
+nano .env
+
+# 4. Start the server (downloads game files on first run ~3 GB)
 docker compose up -d
 
-# 4. Follow logs
+# 5. Follow logs
 docker compose logs -f windrose
 ```
 
-After a few minutes you will see:
+Recommended image tags:
 
-```
-Success! App '4129620' fully installed.
-Starting Windrose dedicated server
+```text
+Stable: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
+Latest: ghcr.io/uberdudepl/windrose-dedicated-server-docker:latest
 ```
 
 ---
 
 ## Configuration
 
-### Server name, password, player limit
+### Common server settings
 
-Edit **`data/R5/ServerDescription.json`** while the server is **stopped**:
+You can set the most common values directly in `.env`:
 
-```bash
-docker compose stop
-nano data/R5/ServerDescription.json
-docker compose start
+```dotenv
+SERVER_NAME=My Windrose Server
+SERVER_PASSWORD=
+MAX_PLAYERS=4
+INVITE_CODE=
 ```
 
-```json
-{
-  "Version": 1,
-  "ServerDescription_Persistent": {
-    "InviteCode": "xxxxxxxx",
-    "IsPasswordProtected": true,
-    "Password": "your-password",
-    "ServerName": "My Windrose Server",
-    "MaxPlayerCount": 4
-  }
-}
-```
-
-> ⚠️ Always stop the server before editing JSON — the server overwrites the file on shutdown.
+If you prefer manual editing, stop the server first and edit `data/R5/ServerDescription.json` directly.
 
 ### Environment variables (`.env`)
 
@@ -284,16 +218,6 @@ git fetch --all --tags
 git tag v1.0.0
 git push origin v1.0.0
 ```
-
----
-
-## Public package and CI checklist
-
-1. GitHub -> Packages -> `windrose-dedicated-server-docker` -> set visibility to **Public**.
-2. Verify **Build and Publish Docker Image** workflow is green.
-3. Verify **Secret Scan** workflow is green.
-4. Confirm package tags exist (`latest`, `v*`, `sha-*`).
-5. Keep `.env`, `data/`, `steam-home/`, and `game/` untracked.
 
 ---
 
