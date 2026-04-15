@@ -64,6 +64,12 @@ trap 'cleanup_xvfb' EXIT
 
 init_dirs() {
   mkdir -p "$SERVERDIR" "$STEAM_HOME" "$WINEPREFIX"
+  mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+  # SteamCMD writes its config/package cache to ~/Steam — point that into our writable volume
+  mkdir -p "$STEAM_HOME/Steam"
+  if [ ! -L "$STEAM_HOME/.steam" ]; then
+    ln -sf "$STEAM_HOME/Steam" "$STEAM_HOME/.steam" 2>/dev/null || true
+  fi
 }
 
 init_xvfb() {
@@ -93,6 +99,10 @@ update_server() {
   else
     login_cmd="+login $(quote "$STEAM_LOGIN")"
   fi
+
+  log "Initialising SteamCMD (first-run bootstrapper pass)"
+  /opt/steamcmd/steamcmd.sh +quit || true
+  sleep 2
 
   log "Updating/validating server files via SteamCMD"
   local attempts=0
