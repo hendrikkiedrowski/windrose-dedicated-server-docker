@@ -95,11 +95,23 @@ update_server() {
   fi
 
   log "Updating/validating server files via SteamCMD"
-  /opt/steamcmd/steamcmd.sh \
-    +force_install_dir "$SERVERDIR" \
-    $login_cmd \
-    +app_update "$APPID" validate \
-    +quit
+  local attempts=0
+  local exit_code=0
+  until [ "$attempts" -ge 3 ]; do
+    attempts=$((attempts + 1))
+    /opt/steamcmd/steamcmd.sh \
+      +force_install_dir "$SERVERDIR" \
+      $login_cmd \
+      +app_update "$APPID" validate \
+      +quit && exit_code=0 && break || exit_code=$?
+    if [ "$exit_code" -eq 254 ]; then
+      log "SteamCMD self-updated (exit 254), retrying (attempt $attempts/3)..."
+      sleep 2
+    else
+      log "SteamCMD failed with exit code $exit_code"
+      exit "$exit_code"
+    fi
+  done
 }
 
 find_server_exe() {
