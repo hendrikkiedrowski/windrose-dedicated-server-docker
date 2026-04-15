@@ -56,7 +56,7 @@ docker compose logs -f windrose
 Recommended image tags:
 
 ```text
-Stable: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.0
+Stable: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.1
 Latest: ghcr.io/uberdudepl/windrose-dedicated-server-docker:latest
 ```
 
@@ -207,16 +207,16 @@ windrose/
 ## Versioning policy
 
 - Use `:latest` only for testing.
-- Use pinned tags like `:v1.0.0` for production/stable servers.
+- Use pinned tags like `:v1.0.1` for production/stable servers.
 - Create a new release tag when you change runtime behavior, dependencies, or startup logic.
 
-Release commands:
+Release commands for the next version:
 
 ```bash
 cd /windrose
 git fetch --all --tags
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.2
+git push origin v1.0.2
 ```
 
 ---
