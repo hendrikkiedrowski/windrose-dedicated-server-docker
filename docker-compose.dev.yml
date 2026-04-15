@@ -1,0 +1,10 @@
+services:
+  windrose:
+    build:
+      context: .
+    image: windrose-ds:dev
+    pull_policy: never
+    environment:
+      UPDATE_ON_START: ${UPDATE_ON_START:-false}
+    volumes:
+      - ./entrypoint.sh:/entrypoint.sh:ro

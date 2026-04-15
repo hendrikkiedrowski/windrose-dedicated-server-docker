@@ -35,6 +35,8 @@ Self-hosted dedicated server for [Windrose](https://store.steampowered.com/app/2
 
 ## Quick start
 
+Production mode uses the published GHCR image by default. Most users only need this mode and can ignore the development override file.
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/UberDudePL/windrose-dedicated-server-docker.git
@@ -46,10 +48,13 @@ cp .env.example .env
 # 3. Edit basic values if needed
 nano .env
 
-# 4. Start the server (downloads game files on first run ~3 GB)
+# 4. Pull the published image
+docker compose pull
+
+# 5. Start the server (downloads game files on first run ~3 GB)
 docker compose up -d
 
-# 5. Follow logs
+# 6. Follow logs
 docker compose logs -f windrose
 ```
 
@@ -59,6 +64,30 @@ Recommended image tags:
 Stable: ghcr.io/uberdudepl/windrose-dedicated-server-docker:v1.0.1
 Latest: ghcr.io/uberdudepl/windrose-dedicated-server-docker:latest
 ```
+
+Set the image version in `.env` with:
+
+```dotenv
+IMAGE_REPOSITORY=ghcr.io/uberdudepl/windrose-dedicated-server-docker
+IMAGE_TAG=v1.0.1
+```
+
+### Optional: development mode
+
+Most users can skip this section. Use the dev override only when you want to test local changes to the image or startup scripts:
+
+```bash
+# Build locally and start with the dev override
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+# Restart after editing entrypoint.sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml restart windrose
+
+# Stop the dev stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+The default [docker-compose.yml](docker-compose.yml) is for stable published images, while [docker-compose.dev.yml](docker-compose.dev.yml) is for local development.
 
 ---
 
@@ -70,6 +99,7 @@ You can set the most common values directly in `.env`:
 
 ```dotenv
 SERVER_NAME=My Windrose Server
+SERVER_NOTE=Friendly co-op server
 SERVER_PASSWORD=
 MAX_PLAYERS=4
 INVITE_CODE=
@@ -91,6 +121,7 @@ UPDATE_ON_START=true         # Set false to skip update on container restart
 GENERATE_SETTINGS=true       # Set false to skip env-based JSON patching
 INVITE_CODE=                 # Optional invite code
 SERVER_NAME=                 # Optional server name
+SERVER_NOTE=                 # Optional public server note/description
 SERVER_PASSWORD=             # Optional password
 MAX_PLAYERS=4                # Recommended for stability
 P2P_PROXY_ADDRESS=127.0.0.1  # Keep default unless you know you need a change
@@ -103,12 +134,17 @@ MULTIHOME=0.0.0.0
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `CONTAINER_NAME` | `windrose` | Change only if you run more than one server on the same host |
+| `HOSTNAME` | `windrose` | Internal container hostname |
+| `IMAGE_REPOSITORY` | GHCR repo | Published image repository |
+| `IMAGE_TAG` | `v1.0.1` | Stable image tag to run |
 | `PUID` | `1000` | User id used for mounted files |
 | `PGID` | `1000` | Group id used for mounted files |
 | `UPDATE_ON_START` | `true` | Update and validate server files on startup |
 | `GENERATE_SETTINGS` | `true` | Auto-patch `ServerDescription.json` from env values |
 | `INVITE_CODE` | empty | Invite code shown to players |
 | `SERVER_NAME` | empty | Display name of the server |
+| `SERVER_NOTE` | empty | Short public server note/description |
 | `SERVER_PASSWORD` | empty | Leave empty for a public server |
 | `MAX_PLAYERS` | `4` | Maximum number of simultaneous players |
 | `P2P_PROXY_ADDRESS` | `127.0.0.1` | Internal socket proxy address |
@@ -130,9 +166,10 @@ MULTIHOME=0.0.0.0
 
 ## How players join
 
-1. Find your **Invite Code** in `data/R5/ServerDescription.json` → `InviteCode` field
-2. Share it with players — they use it in-game under **Join via Code**
-3. No port forwarding is required
+1. Start the server once and wait until it is healthy
+2. Open `data/R5/ServerDescription.json` and copy the `InviteCode` value
+3. Share that code with players — they use it in-game under **Join via Code**
+4. No port forwarding is required
 
 ---
 
@@ -148,8 +185,8 @@ docker compose stop
 # View live logs
 docker compose logs -f windrose
 
-# Force game update
-docker compose down && docker compose up -d
+# Pull the selected image tag and recreate the container
+docker compose pull && docker compose up -d
 
 # Check server process inside container
 docker compose exec windrose pgrep -a WindroseServer
@@ -204,19 +241,15 @@ windrose/
 
 ---
 
-## Versioning policy
+## Image versions
 
-- Use `:latest` only for testing.
-- Use pinned tags like `:v1.0.1` for production/stable servers.
-- Create a new release tag when you change runtime behavior, dependencies, or startup logic.
-
-Release commands for the next version:
+- Most users should keep `IMAGE_TAG=v1.0.1` for a stable server.
+- Use `latest` only for testing.
+- To upgrade later, change `IMAGE_TAG` in `.env`, then run:
 
 ```bash
-cd /windrose
-git fetch --all --tags
-git tag v1.0.2
-git push origin v1.0.2
+docker compose pull
+docker compose up -d
 ```
 
 ---
@@ -228,6 +261,12 @@ git push origin v1.0.2
 - Xvfb provides a headless X display required by Wine
 - `stop_grace_period: 90s` — allows the server to save before shutdown
 - Optional env-based patching can update `ServerDescription.json` automatically
+
+---
+
+## Issues and suggestions
+
+If you hit a bug or want a new feature, please open an issue in the GitHub repository.
 
 ---
 

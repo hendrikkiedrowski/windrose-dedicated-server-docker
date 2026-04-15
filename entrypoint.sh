@@ -17,6 +17,7 @@ QUERYPORT=${QUERYPORT:-7778}
 MULTIHOME=${MULTIHOME:-0.0.0.0}
 INVITE_CODE=${INVITE_CODE:-}
 SERVER_NAME=${SERVER_NAME:-}
+SERVER_NOTE=${SERVER_NOTE:-}
 SERVER_PASSWORD=${SERVER_PASSWORD:-}
 MAX_PLAYERS=${MAX_PLAYERS:-4}
 P2P_PROXY_ADDRESS=${P2P_PROXY_ADDRESS:-127.0.0.1}
@@ -150,6 +151,7 @@ patch_server_config() {
   tr -d '\r' < "$SERVER_DESC" | jq \
     --arg invite "$INVITE_CODE" \
     --arg name "$SERVER_NAME" \
+    --arg note "$SERVER_NOTE" \
     --arg password "$SERVER_PASSWORD" \
     --arg proxy "$P2P_PROXY_ADDRESS" \
     --argjson maxplayers "$MAX_PLAYERS" \
@@ -157,6 +159,7 @@ patch_server_config() {
     .ServerDescription_Persistent.P2pProxyAddress = $proxy |
     if $invite != "" then .ServerDescription_Persistent.InviteCode = $invite else . end |
     if $name != "" then .ServerDescription_Persistent.ServerName = $name else . end |
+    if $note != "" then .ServerDescription_Persistent.Note = $note else . end |
     if $password != "" then
       .ServerDescription_Persistent.IsPasswordProtected = true |
       .ServerDescription_Persistent.Password = $password
