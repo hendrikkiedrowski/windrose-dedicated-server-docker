@@ -1,51 +1,38 @@
 #!/usr/bin/env bash
+# Pterodactyl / Wings fork of the Windrose entrypoint.
+# Key differences from the upstream image:
+#   - No su/usermod — Wings runs the container as the correct user already.
+#   - SERVERDIR=/home/container/data  (inside the Wings-mounted volume)
+#   - STEAM_HOME=/home/container/.steam-home  (also persisted in the volume)
+#   - WINEPREFIX lives inside STEAM_HOME so it persists across restarts.
+
 set -euo pipefail
 
-APPID=${WINDROSE_APP_ID:-4129620}
-SERVERDIR=${SERVERDIR:-/data}
-STEAM_HOME=${STEAM_HOME:-/home/steam}
-WINEPREFIX=${WINEPREFIX:-$STEAM_HOME/.wine}
-STEAM_LOGIN=${STEAM_LOGIN:-anonymous}
-STEAM_PASS=${STEAM_PASS:-}
-UPDATE_ON_START=${UPDATE_ON_START:-true}
-GENERATE_SETTINGS=${GENERATE_SETTINGS:-true}
-PUID=${PUID:-1000}
-PGID=${PGID:-1000}
+APPID="${WINDROSE_APP_ID:-4129620}"
+SERVERDIR="${SERVERDIR:-/home/container/data}"
+STEAM_HOME="${STEAM_HOME:-/home/container/.steam-home}"
+WINEPREFIX="${WINEPREFIX:-$STEAM_HOME/.wine}"
+STEAM_LOGIN="${STEAM_LOGIN:-anonymous}"
+STEAM_PASS="${STEAM_PASS:-}"
+UPDATE_ON_START="${UPDATE_ON_START:-true}"
+GENERATE_SETTINGS="${GENERATE_SETTINGS:-true}"
+PORT="${PORT:-7777}"
+QUERYPORT="${QUERYPORT:-7778}"
+MULTIHOME="${MULTIHOME:-0.0.0.0}"
+INVITE_CODE="${INVITE_CODE:-}"
+SERVER_NAME="${SERVER_NAME:-}"
+SERVER_NOTE="${SERVER_NOTE:-}"
+SERVER_PASSWORD="${SERVER_PASSWORD:-}"
+MAX_PLAYERS="${MAX_PLAYERS:-4}"
+P2P_PROXY_ADDRESS="${P2P_PROXY_ADDRESS:-127.0.0.1}"
+FIRST_RUN_TIMEOUT="${FIRST_RUN_TIMEOUT:-120}"
 
-PORT=${PORT:-7777}
-QUERYPORT=${QUERYPORT:-7778}
-MULTIHOME=${MULTIHOME:-0.0.0.0}
-INVITE_CODE=${INVITE_CODE:-}
-SERVER_NAME=${SERVER_NAME:-}
-SERVER_NOTE=${SERVER_NOTE:-}
-SERVER_PASSWORD=${SERVER_PASSWORD:-}
-MAX_PLAYERS=${MAX_PLAYERS:-4}
-P2P_PROXY_ADDRESS=${P2P_PROXY_ADDRESS:-127.0.0.1}
-FIRST_RUN_TIMEOUT=${FIRST_RUN_TIMEOUT:-120}
-
+SERVER_DESC="$SERVERDIR/R5/ServerDescription.json"
 SERVER_PID=""
 XVFB_PID=""
-SERVER_DESC="$SERVERDIR/R5/ServerDescription.json"
 
-log() {
-  echo "[windrose] $*"
-}
-
-quote() {
-  printf '%q' "$1"
-}
-
-run_as_steam() {
-  su -s /bin/bash steam -c "$*"
-}
-
-ensure_user_mapping() {
-  groupmod -o -g "$PGID" steam 2>/dev/null || true
-  usermod -o -u "$PUID" steam 2>/dev/null || true
-
-  mkdir -p "$SERVERDIR" "$STEAM_HOME"
-  chown -R steam:steam /opt/steamcmd "$STEAM_HOME" "$SERVERDIR" 2>/dev/null || true
-}
+log() { echo "[windrose] $*"; }
+quote() { printf '%q' "$1"; }
 
 cleanup_xvfb() {
   if [ -n "$XVFB_PID" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
@@ -55,21 +42,23 @@ cleanup_xvfb() {
 
 shutdown_server() {
   log "Stopping Windrose dedicated server"
-  pkill -TERM -u steam -f 'WindroseServer-Win64-Shipping.exe' 2>/dev/null || true
-  pkill -TERM -u steam -f 'wineserver' 2>/dev/null || true
-
+  pkill -TERM -f 'WindroseServer-Win64-Shipping.exe' 2>/dev/null || true
+  pkill -TERM -f 'wineserver' 2>/dev/null || true
   for _ in $(seq 1 30); do
-    if ! pgrep -u steam -f 'WindroseServer-Win64-Shipping.exe|wineserver' >/dev/null 2>&1; then
+    if ! pgrep -f 'WindroseServer-Win64-Shipping.exe|wineserver' >/dev/null 2>&1; then
       break
     fi
     sleep 1
   done
-
-  pkill -KILL -u steam -f 'WindroseServer-Win64-Shipping.exe|wineserver' 2>/dev/null || true
+  pkill -KILL -f 'WindroseServer-Win64-Shipping.exe|wineserver' 2>/dev/null || true
 }
 
 trap 'shutdown_server; exit 0' TERM INT
 trap 'cleanup_xvfb' EXIT
+
+init_dirs() {
+  mkdir -p "$SERVERDIR" "$STEAM_HOME" "$WINEPREFIX"
+}
 
 init_xvfb() {
   rm -f /tmp/.X99-lock || true
@@ -78,12 +67,9 @@ init_xvfb() {
 }
 
 init_wine() {
-  mkdir -p "$WINEPREFIX"
-  chown -R steam:steam "$STEAM_HOME" 2>/dev/null || true
-
   if [ ! -f "$WINEPREFIX/system.reg" ]; then
-    log "Initializing Wine prefix"
-    run_as_steam "WINEPREFIX=$(quote "$WINEPREFIX") wineboot -i >/dev/null 2>&1 || true"
+    log "Initializing Wine prefix at $WINEPREFIX"
+    WINEPREFIX="$WINEPREFIX" wineboot -i >/dev/null 2>&1 || true
   fi
 }
 
@@ -102,8 +88,12 @@ update_server() {
     login_cmd="+login $(quote "$STEAM_LOGIN")"
   fi
 
-  log "Updating or validating server files"
-  run_as_steam "mkdir -p $(quote "$SERVERDIR") && /opt/steamcmd/steamcmd.sh +force_install_dir $(quote "$SERVERDIR") $login_cmd +app_update $(quote "$APPID") validate +quit"
+  log "Updating/validating server files via SteamCMD"
+  /opt/steamcmd/steamcmd.sh \
+    +force_install_dir "$(quote "$SERVERDIR")" \
+    $login_cmd \
+    +app_update "$(quote "$APPID")" validate \
+    +quit
 }
 
 find_server_exe() {
@@ -112,43 +102,41 @@ find_server_exe() {
 
 first_run_generate_config() {
   local exe="$1"
-
   if [ "$GENERATE_SETTINGS" != "true" ] || [ -f "$SERVER_DESC" ]; then
     return
   fi
-
-  log "First run detected, generating default server config"
-  run_as_steam "WINEPREFIX=$(quote "$WINEPREFIX") wine $(quote "$exe") -log -MULTIHOME=$(quote "$MULTIHOME") -PORT=$(quote "$PORT") -QUERYPORT=$(quote "$QUERYPORT") >/tmp/windrose-first-run.log 2>&1" &
+  log "First run: starting server briefly to generate ServerDescription.json"
+  WINEPREFIX="$WINEPREFIX" wine "$exe" \
+    -log \
+    -MULTIHOME="$MULTIHOME" \
+    -PORT="$PORT" \
+    -QUERYPORT="$QUERYPORT" \
+    >/tmp/windrose-first-run.log 2>&1 &
   local warmup_pid=$!
-
   local count=0
   while [ ! -f "$SERVER_DESC" ] && [ "$count" -lt "$FIRST_RUN_TIMEOUT" ]; do
     sleep 1
     count=$((count + 1))
   done
-
   kill "$warmup_pid" 2>/dev/null || true
   wait "$warmup_pid" 2>/dev/null || true
-  pkill -TERM -u steam -f 'wineserver' 2>/dev/null || true
-
+  pkill -TERM -f 'wineserver' 2>/dev/null || true
   if [ ! -f "$SERVER_DESC" ]; then
-    log "ServerDescription.json was not generated during first run"
+    log "Warning: ServerDescription.json was not generated"
   fi
 }
 
 patch_server_config() {
   if [ "$GENERATE_SETTINGS" != "true" ]; then
-    log "GENERATE_SETTINGS=false, skipping JSON patching"
+    log "GENERATE_SETTINGS=false, skipping config patch"
     return
   fi
-
   if [ ! -f "$SERVER_DESC" ]; then
     log "ServerDescription.json not found, skipping patch"
     return
   fi
-
-  log "Patching ServerDescription.json from environment"
-  tr -d '\r' < "$SERVER_DESC" | jq \
+  log "Patching ServerDescription.json from environment variables"
+  tr -d '\r' <"$SERVER_DESC" | jq \
     --arg invite "$INVITE_CODE" \
     --arg name "$SERVER_NAME" \
     --arg note "$SERVER_NOTE" \
@@ -156,44 +144,46 @@ patch_server_config() {
     --arg proxy "$P2P_PROXY_ADDRESS" \
     --argjson maxplayers "$MAX_PLAYERS" \
     '
-    .ServerDescription_Persistent.P2pProxyAddress = $proxy |
-    if $invite != "" then .ServerDescription_Persistent.InviteCode = $invite else . end |
-    if $name != "" then .ServerDescription_Persistent.ServerName = $name else . end |
-    if $note != "" then .ServerDescription_Persistent.Note = $note else . end |
-    if $password != "" then
-      .ServerDescription_Persistent.IsPasswordProtected = true |
-      .ServerDescription_Persistent.Password = $password
-    else
-      .ServerDescription_Persistent.IsPasswordProtected = false |
-      .ServerDescription_Persistent.Password = ""
-    end |
-    .ServerDescription_Persistent.MaxPlayerCount = $maxplayers
-    ' > "$SERVER_DESC.tmp"
-
+        .ServerDescription_Persistent.P2pProxyAddress = $proxy |
+        if $invite   != "" then .ServerDescription_Persistent.InviteCode  = $invite   else . end |
+        if $name     != "" then .ServerDescription_Persistent.ServerName  = $name     else . end |
+        if $note     != "" then .ServerDescription_Persistent.Note        = $note     else . end |
+        if $password != "" then
+            .ServerDescription_Persistent.IsPasswordProtected = true |
+            .ServerDescription_Persistent.Password = $password
+        else
+            .ServerDescription_Persistent.IsPasswordProtected = false |
+            .ServerDescription_Persistent.Password = ""
+        end |
+        .ServerDescription_Persistent.MaxPlayerCount = $maxplayers
+        ' >"$SERVER_DESC.tmp"
   mv "$SERVER_DESC.tmp" "$SERVER_DESC"
-  chown steam:steam "$SERVER_DESC" 2>/dev/null || true
 }
 
 start_server() {
   local exe="$1"
-
   log "Starting Windrose dedicated server"
-  log "Executable: $exe"
-
-  run_as_steam "WINEPREFIX=$(quote "$WINEPREFIX") wine $(quote "$exe") -log -MULTIHOME=$(quote "$MULTIHOME") -PORT=$(quote "$PORT") -QUERYPORT=$(quote "$QUERYPORT")" &
+  log "Executable : $exe"
+  log "Port       : $PORT  QueryPort: $QUERYPORT  Multihome: $MULTIHOME"
+  WINEPREFIX="$WINEPREFIX" wine "$exe" \
+    -log \
+    -MULTIHOME="$MULTIHOME" \
+    -PORT="$PORT" \
+    -QUERYPORT="$QUERYPORT" &
   SERVER_PID=$!
   wait "$SERVER_PID"
 }
 
-ensure_user_mapping
+# ── Main ────────────────────────────────────────────────────────────────────
+init_dirs
 init_xvfb
 init_wine
 update_server
 
 SERVER_EXE=$(find_server_exe)
 if [ -z "$SERVER_EXE" ]; then
-  log "ERROR: Windrose server executable not found"
-  find "$SERVERDIR" -maxdepth 4 || true
+  log "ERROR: WindroseServer-Win64-Shipping.exe not found under $SERVERDIR"
+  find "$SERVERDIR" -maxdepth 4 2>/dev/null || true
   exit 1
 fi
 
