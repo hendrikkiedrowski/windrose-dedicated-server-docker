@@ -41,137 +41,137 @@ log() { echo "[windrose] $*"; }
 quote() { printf '%q' "$1"; }
 
 cleanup_xvfb() {
-  if [ -n "$XVFB_PID" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
-    kill "$XVFB_PID" 2>/dev/null || true
-  fi
+    if [ -n "$XVFB_PID" ] && kill -0 "$XVFB_PID" 2>/dev/null; then
+        kill "$XVFB_PID" 2>/dev/null || true
+    fi
 }
 
 shutdown_server() {
-  log "Stopping Windrose dedicated server"
-  pkill -TERM -f 'WindroseServer-Win64-Shipping.exe' 2>/dev/null || true
-  pkill -TERM -f 'wineserver' 2>/dev/null || true
-  for _ in $(seq 1 30); do
-    if ! pgrep -f 'WindroseServer-Win64-Shipping.exe|wineserver' >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-  pkill -KILL -f 'WindroseServer-Win64-Shipping.exe|wineserver' 2>/dev/null || true
+    log "Stopping Windrose dedicated server"
+    pkill -TERM -f 'WindroseServer-Win64-Shipping.exe' 2>/dev/null || true
+    pkill -TERM -f 'wineserver' 2>/dev/null || true
+    for _ in $(seq 1 30); do
+        if ! pgrep -f 'WindroseServer-Win64-Shipping.exe|wineserver' >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    pkill -KILL -f 'WindroseServer-Win64-Shipping.exe|wineserver' 2>/dev/null || true
 }
 
 trap 'shutdown_server; exit 0' TERM INT
 trap 'cleanup_xvfb' EXIT
 
 init_dirs() {
-  mkdir -p "$SERVERDIR" "$STEAM_HOME" "$WINEPREFIX"
-  mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
-  # SteamCMD writes its config/package cache to ~/Steam — point that into our writable volume
-  mkdir -p "$STEAM_HOME/Steam"
-  if [ ! -L "$STEAM_HOME/.steam" ]; then
-    ln -sf "$STEAM_HOME/Steam" "$STEAM_HOME/.steam" 2>/dev/null || true
-  fi
+    mkdir -p "$SERVERDIR" "$STEAM_HOME" "$WINEPREFIX"
+    mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
+    # SteamCMD writes its config/package cache to ~/Steam — point that into our writable volume
+    mkdir -p "$STEAM_HOME/Steam"
+    if [ ! -L "$STEAM_HOME/.steam" ]; then
+        ln -sf "$STEAM_HOME/Steam" "$STEAM_HOME/.steam" 2>/dev/null || true
+    fi
 }
 
 init_xvfb() {
-  rm -f /tmp/.X99-lock || true
-  Xvfb :99 -screen 0 1024x768x16 -nolisten tcp >/dev/null 2>&1 &
-  XVFB_PID=$!
+    rm -f /tmp/.X99-lock || true
+    Xvfb :99 -screen 0 1024x768x16 -nolisten tcp >/dev/null 2>&1 &
+    XVFB_PID=$!
 }
 
 init_wine() {
-  if [ ! -f "$WINEPREFIX/system.reg" ]; then
-    log "Initializing Wine prefix at $WINEPREFIX"
-    WINEPREFIX="$WINEPREFIX" wineboot -i >/dev/null 2>&1 || true
-  fi
+    if [ ! -f "$WINEPREFIX/system.reg" ]; then
+        log "Initializing Wine prefix at $WINEPREFIX"
+        WINEPREFIX="$WINEPREFIX" wineboot -i >/dev/null 2>&1 || true
+    fi
 }
 
 update_server() {
-  if [ "$UPDATE_ON_START" != "true" ]; then
-    log "UPDATE_ON_START=false, skipping SteamCMD update"
-    return
-  fi
-
-  local login_cmd
-  if [ "$STEAM_LOGIN" = "anonymous" ]; then
-    login_cmd='+login anonymous'
-  elif [ -n "$STEAM_PASS" ]; then
-    login_cmd="+login $(quote "$STEAM_LOGIN") $(quote "$STEAM_PASS")"
-  else
-    login_cmd="+login $(quote "$STEAM_LOGIN")"
-  fi
-
-  log "Initialising SteamCMD (first-run bootstrapper pass)"
-  /opt/steamcmd/steamcmd.sh +quit || true
-  sleep 2
-
-  log "Updating/validating server files via SteamCMD"
-  local attempts=0
-  local exit_code=0
-  until [ "$attempts" -ge 3 ]; do
-    attempts=$((attempts + 1))
-    /opt/steamcmd/steamcmd.sh \
-      +force_install_dir "$SERVERDIR" \
-      $login_cmd \
-      +app_update "$APPID" validate \
-      +quit && exit_code=0 && break || exit_code=$?
-    if [ "$exit_code" -eq 254 ]; then
-      log "SteamCMD self-updated (exit 254), retrying (attempt $attempts/3)..."
-      sleep 2
-    else
-      log "SteamCMD failed with exit code $exit_code"
-      exit "$exit_code"
+    if [ "$UPDATE_ON_START" != "true" ]; then
+        log "UPDATE_ON_START=false, skipping SteamCMD update"
+        return
     fi
-  done
+
+    local login_cmd
+    if [ "$STEAM_LOGIN" = "anonymous" ]; then
+        login_cmd='+login anonymous'
+    elif [ -n "$STEAM_PASS" ]; then
+        login_cmd="+login $(quote "$STEAM_LOGIN") $(quote "$STEAM_PASS")"
+    else
+        login_cmd="+login $(quote "$STEAM_LOGIN")"
+    fi
+
+    log "Initialising SteamCMD (first-run bootstrapper pass)"
+    /opt/steamcmd/steamcmd.sh +quit || true
+    sleep 2
+
+    log "Updating/validating server files via SteamCMD"
+    local attempts=0
+    local exit_code=0
+    until [ "$attempts" -ge 3 ]; do
+        attempts=$((attempts + 1))
+        /opt/steamcmd/steamcmd.sh \
+            +force_install_dir "$SERVERDIR" \
+            $login_cmd \
+            +app_update "$APPID" validate \
+            +quit && exit_code=0 && break || exit_code=$?
+        if [ "$exit_code" -eq 254 ]; then
+            log "SteamCMD self-updated (exit 254), retrying (attempt $attempts/3)..."
+            sleep 2
+        else
+            log "SteamCMD failed with exit code $exit_code"
+            exit "$exit_code"
+        fi
+    done
 }
 
 find_server_exe() {
-  find "$SERVERDIR" -iname 'WindroseServer-Win64-Shipping.exe' | head -n 1 || true
+    find "$SERVERDIR" -iname 'WindroseServer-Win64-Shipping.exe' | head -n 1 || true
 }
 
 first_run_generate_config() {
-  local exe="$1"
-  if [ "$GENERATE_SETTINGS" != "true" ] || [ -f "$SERVER_DESC" ]; then
-    return
-  fi
-  log "First run: starting server briefly to generate ServerDescription.json"
-  WINEPREFIX="$WINEPREFIX" wine "$exe" \
-    -log \
-    -MULTIHOME="$MULTIHOME" \
-    -PORT="$PORT" \
-    -QUERYPORT="$QUERYPORT" \
-    >/tmp/windrose-first-run.log 2>&1 &
-  local warmup_pid=$!
-  local count=0
-  while [ ! -f "$SERVER_DESC" ] && [ "$count" -lt "$FIRST_RUN_TIMEOUT" ]; do
-    sleep 1
-    count=$((count + 1))
-  done
-  kill "$warmup_pid" 2>/dev/null || true
-  wait "$warmup_pid" 2>/dev/null || true
-  pkill -TERM -f 'wineserver' 2>/dev/null || true
-  if [ ! -f "$SERVER_DESC" ]; then
-    log "Warning: ServerDescription.json was not generated"
-  fi
+    local exe="$1"
+    if [ "$GENERATE_SETTINGS" != "true" ] || [ -f "$SERVER_DESC" ]; then
+        return
+    fi
+    log "First run: starting server briefly to generate ServerDescription.json"
+    WINEPREFIX="$WINEPREFIX" wine "$exe" \
+        -log \
+        -MULTIHOME="$MULTIHOME" \
+        -PORT="$PORT" \
+        -QUERYPORT="$QUERYPORT" \
+        >/tmp/windrose-first-run.log 2>&1 &
+    local warmup_pid=$!
+    local count=0
+    while [ ! -f "$SERVER_DESC" ] && [ "$count" -lt "$FIRST_RUN_TIMEOUT" ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+    kill "$warmup_pid" 2>/dev/null || true
+    wait "$warmup_pid" 2>/dev/null || true
+    pkill -TERM -f 'wineserver' 2>/dev/null || true
+    if [ ! -f "$SERVER_DESC" ]; then
+        log "Warning: ServerDescription.json was not generated"
+    fi
 }
 
 patch_server_config() {
-  if [ "$GENERATE_SETTINGS" != "true" ]; then
-    log "GENERATE_SETTINGS=false, skipping config patch"
-    return
-  fi
-  if [ ! -f "$SERVER_DESC" ]; then
-    log "ServerDescription.json not found, skipping patch"
-    return
-  fi
-  log "Patching ServerDescription.json from environment variables"
-  tr -d '\r' <"$SERVER_DESC" | jq \
-    --arg invite "$INVITE_CODE" \
-    --arg name "$SERVER_NAME" \
-    --arg note "$SERVER_NOTE" \
-    --arg password "$SERVER_PASSWORD" \
-    --arg proxy "$P2P_PROXY_ADDRESS" \
-    --argjson maxplayers "$MAX_PLAYERS" \
-    '
+    if [ "$GENERATE_SETTINGS" != "true" ]; then
+        log "GENERATE_SETTINGS=false, skipping config patch"
+        return
+    fi
+    if [ ! -f "$SERVER_DESC" ]; then
+        log "ServerDescription.json not found, skipping patch"
+        return
+    fi
+    log "Patching ServerDescription.json from environment variables"
+    tr -d '\r' < "$SERVER_DESC" | jq \
+        --arg invite    "$INVITE_CODE" \
+        --arg name      "$SERVER_NAME" \
+        --arg note      "$SERVER_NOTE" \
+        --arg password  "$SERVER_PASSWORD" \
+        --arg proxy     "$P2P_PROXY_ADDRESS" \
+        --argjson maxplayers "$MAX_PLAYERS" \
+        '
         .ServerDescription_Persistent.P2pProxyAddress = $proxy |
         if $invite   != "" then .ServerDescription_Persistent.InviteCode  = $invite   else . end |
         if $name     != "" then .ServerDescription_Persistent.ServerName  = $name     else . end |
@@ -184,22 +184,22 @@ patch_server_config() {
             .ServerDescription_Persistent.Password = ""
         end |
         .ServerDescription_Persistent.MaxPlayerCount = $maxplayers
-        ' >"$SERVER_DESC.tmp"
-  mv "$SERVER_DESC.tmp" "$SERVER_DESC"
+        ' > "$SERVER_DESC.tmp"
+    mv "$SERVER_DESC.tmp" "$SERVER_DESC"
 }
 
 start_server() {
-  local exe="$1"
-  log "Starting Windrose dedicated server"
-  log "Executable : $exe"
-  log "Port       : $PORT  QueryPort: $QUERYPORT  Multihome: $MULTIHOME"
-  WINEPREFIX="$WINEPREFIX" wine "$exe" \
-    -log \
-    -MULTIHOME="$MULTIHOME" \
-    -PORT="$PORT" \
-    -QUERYPORT="$QUERYPORT" &
-  SERVER_PID=$!
-  wait "$SERVER_PID"
+    local exe="$1"
+    log "Starting Windrose dedicated server"
+    log "Executable : $exe"
+    log "Port       : $PORT  QueryPort: $QUERYPORT  Multihome: $MULTIHOME"
+    WINEPREFIX="$WINEPREFIX" wine "$exe" \
+        -log \
+        -MULTIHOME="$MULTIHOME" \
+        -PORT="$PORT" \
+        -QUERYPORT="$QUERYPORT" &
+    SERVER_PID=$!
+    wait "$SERVER_PID"
 }
 
 # ── Main ────────────────────────────────────────────────────────────────────
@@ -208,11 +208,18 @@ init_xvfb
 init_wine
 update_server
 
+log "Searching for server executable..."
+log "Contents of /home/container:"
+ls -la /home/container/ 2>/dev/null || true
+log "Contents of SERVERDIR ($SERVERDIR):"
+ls -la "$SERVERDIR/" 2>/dev/null || log "(empty or missing)"
+log "Deep search for exe:"
+find /home/container -iname 'WindroseServer-Win64-Shipping.exe' 2>/dev/null || log "(not found anywhere under /home/container)"
+
 SERVER_EXE=$(find_server_exe)
 if [ -z "$SERVER_EXE" ]; then
-  log "ERROR: WindroseServer-Win64-Shipping.exe not found under $SERVERDIR"
-  find "$SERVERDIR" -maxdepth 4 2>/dev/null || true
-  exit 1
+    log "ERROR: WindroseServer-Win64-Shipping.exe not found under $SERVERDIR"
+    exit 1
 fi
 
 first_run_generate_config "$SERVER_EXE"
