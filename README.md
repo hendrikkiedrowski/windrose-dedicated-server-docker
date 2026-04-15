@@ -195,6 +195,28 @@ docker compose exec windrose pgrep -a WindroseServer
 docker compose ps
 ```
 
+## Optional helper launcher
+
+For easier day-to-day use, this repo also includes a small helper launcher.
+
+```bash
+chmod +x ./windrose ./serverctl.sh
+
+./windrose start
+./windrose stop
+./windrose restart
+./windrose status
+./windrose logs
+./windrose update
+```
+
+Optional system-wide install:
+
+```bash
+sudo ln -sf "$PWD/windrose" /usr/local/bin/windrosectl
+windrosectl start
+```
+
 ---
 
 ## Backup saves
