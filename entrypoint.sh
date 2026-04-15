@@ -12,6 +12,12 @@ APPID="${WINDROSE_APP_ID:-4129620}"
 SERVERDIR="${SERVERDIR:-/home/container/data}"
 STEAM_HOME="${STEAM_HOME:-/home/container/.steam-home}"
 WINEPREFIX="${WINEPREFIX:-$STEAM_HOME/.wine}"
+
+# SteamCMD requires a writable HOME and XDG dirs — Wings doesn't set these.
+export HOME="$STEAM_HOME"
+export XDG_DATA_HOME="$STEAM_HOME/.local/share"
+export XDG_CONFIG_HOME="$STEAM_HOME/.config"
+export XDG_CACHE_HOME="$STEAM_HOME/.cache"
 STEAM_LOGIN="${STEAM_LOGIN:-anonymous}"
 STEAM_PASS="${STEAM_PASS:-}"
 UPDATE_ON_START="${UPDATE_ON_START:-true}"
@@ -90,9 +96,9 @@ update_server() {
 
   log "Updating/validating server files via SteamCMD"
   /opt/steamcmd/steamcmd.sh \
-    +force_install_dir "$(quote "$SERVERDIR")" \
+    +force_install_dir "$SERVERDIR" \
     $login_cmd \
-    +app_update "$(quote "$APPID")" validate \
+    +app_update "$APPID" validate \
     +quit
 }
 
