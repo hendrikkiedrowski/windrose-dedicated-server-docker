@@ -10,13 +10,23 @@ services:
     env_file:
       - .env
     environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
       WINDROSE_APP_ID: ${WINDROSE_APP_ID:-4129620}
       STEAM_LOGIN: ${STEAM_LOGIN:-anonymous}
       STEAM_PASS: ${STEAM_PASS:-}
+      UPDATE_ON_START: ${UPDATE_ON_START:-true}
+      GENERATE_SETTINGS: ${GENERATE_SETTINGS:-true}
+      INVITE_CODE: ${INVITE_CODE:-}
+      SERVER_NAME: ${SERVER_NAME:-}
+      SERVER_PASSWORD: ${SERVER_PASSWORD:-}
+      MAX_PLAYERS: ${MAX_PLAYERS:-4}
+      P2P_PROXY_ADDRESS: ${P2P_PROXY_ADDRESS:-127.0.0.1}
+      MULTIHOME: ${MULTIHOME:-0.0.0.0}
       WINEDEBUG: -all
       DISPLAY: :99
-      PORT: 7777
-      QUERYPORT: 7778
+      PORT: ${PORT:-7777}
+      QUERYPORT: ${QUERYPORT:-7778}
     volumes:
       - ./data:/data
       - ./steam-home:/home/steam

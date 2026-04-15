@@ -8,13 +8,16 @@ Self-hosted dedicated server for [Windrose](https://store.steampowered.com/app/2
 
 ## Features
 
-- Automatic server download and update via SteamCMD on every start
+- Automatic server download and update via SteamCMD
+- Optional update-on-start toggle for faster restarts
 - Wine + Xvfb headless runtime (no desktop required)
 - Persistent saves and config via bind-mounted volumes
+- Optional env-driven patching for server name, password, invite code, and max players
+- PUID and PGID support for better host permission compatibility
 - `restart: unless-stopped` — survives host reboots automatically
 - Healthcheck watching the server process
 - Log rotation (20 MB × 5 files)
-- Anonymous SteamCMD login — no Steam account needed
+- Anonymous SteamCMD login by default
 
 ---
 
@@ -94,8 +97,8 @@ docker compose logs -f windrose
 git clone https://github.com/UberDudePL/windrose-dedicated-server-docker.git
 cd windrose-dedicated-server-docker
 
-# 2. Set ownership (required for Wine to work inside the container)
-chown -R 1000:1000 .
+# 2. Copy the example environment file
+cp .env.example .env
 
 # 3. Start the server (downloads game files on first run ~3 GB)
 docker compose up -d
@@ -142,16 +145,39 @@ docker compose start
 
 ### Environment variables (`.env`)
 
+Copy `.env.example` to `.env` and change only the values you need.
+
 ```dotenv
-STEAM_LOGIN=anonymous        # SteamCMD login (anonymous works for this app)
-WINDROSE_APP_ID=4129620      # Steam AppID for Windrose Dedicated Server
+PUID=1000                    # Host user id for mounted files
+PGID=1000                    # Host group id for mounted files
+STEAM_LOGIN=anonymous        # SteamCMD login
 STEAM_PASS=                  # Leave empty for anonymous login
+WINDROSE_APP_ID=4129620      # Steam AppID for Windrose Dedicated Server
+UPDATE_ON_START=true         # Set false to skip update on container restart
+GENERATE_SETTINGS=true       # Set false to skip env-based JSON patching
+INVITE_CODE=                 # Optional invite code
+SERVER_NAME=                 # Optional server name
+SERVER_PASSWORD=             # Optional password
+MAX_PLAYERS=4                # Recommended for stability
+P2P_PROXY_ADDRESS=127.0.0.1  # Keep default unless you know you need a change
+PORT=7777
+QUERYPORT=7778
+MULTIHOME=0.0.0.0
 ```
 
 ### `docker-compose.yml` overrides
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `PUID` | `1000` | User id used for mounted files |
+| `PGID` | `1000` | Group id used for mounted files |
+| `UPDATE_ON_START` | `true` | Update and validate server files on startup |
+| `GENERATE_SETTINGS` | `true` | Auto-patch `ServerDescription.json` from env values |
+| `INVITE_CODE` | empty | Invite code shown to players |
+| `SERVER_NAME` | empty | Display name of the server |
+| `SERVER_PASSWORD` | empty | Leave empty for a public server |
+| `MAX_PLAYERS` | `4` | Maximum number of simultaneous players |
+| `P2P_PROXY_ADDRESS` | `127.0.0.1` | Internal socket proxy address |
 | `PORT` | `7777` | Game port (UDP) |
 | `QUERYPORT` | `7778` | Query port (UDP) |
 | `WINDROSE_APP_ID` | `4129620` | Steam AppID |
@@ -236,9 +262,9 @@ windrose/
 
 | Symptom | Fix |
 |---------|-----|
-| `wine: '/home/steam' is not owned by you` | Run `chown -R 1000:1000 .` on the host |
+| `wine: '/home/steam' is not owned by you` | Set `PUID` and `PGID` correctly in `.env`, then restart the container |
 | `Server is already active for display 99` | Stale Xvfb lock — entrypoint removes it automatically on restart |
-| `ERROR! Failed to install app` | Check SteamCMD logs; ensure `STEAM_LOGIN=anonymous` is set |
+| `ERROR! Failed to install app` | Check SteamCMD logs and verify the app id and Steam login mode |
 | Server not visible to players | Share the `InviteCode` from `ServerDescription.json` |
 | Config reset after restart | Edit JSON only when container is stopped |
 
@@ -273,10 +299,11 @@ git push origin v1.0.0
 
 ## Technical notes
 
-- Uses **UID 1000** inside the container — host directories must be owned by `1000:1000`
+- Supports configurable `PUID` and `PGID` to align mounted volumes with the host
 - `network_mode: host` — no Docker NAT, direct network access
 - Xvfb provides a headless X display required by Wine
 - `stop_grace_period: 90s` — allows the server to save before shutdown
+- Optional env-based patching can update `ServerDescription.json` automatically
 
 ---
 

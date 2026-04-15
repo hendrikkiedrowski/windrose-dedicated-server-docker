@@ -19,6 +19,8 @@ RUN dpkg --add-architecture i386 && \
       libc6:i386 libstdc++6:i386 \
       libncurses5:i386 libtinfo5:i386 \
       locales \
+      jq \
+      procps \
     && rm -rf /var/lib/apt/lists/*
 
 RUN sed -i 's/^# \(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && locale-gen
@@ -35,7 +37,6 @@ RUN mkdir -p /opt/steamcmd && \
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER steam
 WORKDIR /home/steam
 
 ENTRYPOINT ["/entrypoint.sh"]
