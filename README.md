@@ -107,6 +107,8 @@ INVITE_CODE=
 
 If you prefer manual editing, stop the server first and edit `data/R5/ServerDescription.json` directly.
 
+> Important: edit JSON files only while the server is stopped, or your changes may be overwritten.
+
 ### Environment variables (`.env`)
 
 Copy `.env.example` to `.env` and change only the values you need.
@@ -169,7 +171,10 @@ MULTIHOME=0.0.0.0
 1. Start the server once and wait until it is healthy
 2. Open `data/R5/ServerDescription.json` and copy the `InviteCode` value
 3. Share that code with players — they use it in-game under **Join via Code**
-4. No port forwarding is required
+4. Invite codes are case-sensitive and should be at least 6 characters long
+5. No port forwarding is required for the normal invite-code flow
+
+The server still binds internal game and query ports, mainly for local binding and advanced or multi-instance setups.
 
 ---
 
@@ -219,6 +224,14 @@ windrosectl start
 
 ---
 
+## Save transfer and world selection
+
+- World saves live under `data/R5/Saved/SaveProfiles/Default/RocksDB/<game-version>/Worlds/`
+- To move an existing world onto the dedicated server, copy the whole world folder and set `WorldIslandId` in `ServerDescription.json` to that folder name
+- Do not rename world folders — the database relies on those IDs
+
+---
+
 ## Backup saves
 
 ```bash
@@ -259,7 +272,9 @@ windrose/
 | `Server is already active for display 99` | Stale Xvfb lock — entrypoint removes it automatically on restart |
 | `ERROR! Failed to install app` | Check SteamCMD logs and verify the app id and Steam login mode |
 | Server not visible to players | Share the `InviteCode` from `ServerDescription.json` |
+| Connection works on some networks but not others | The network or ISP may be blocking STUN/TURN traffic used by the game; check access to `*.windrose.support` on port `3478` over UDP/TCP |
 | Config reset after restart | Edit JSON only when container is stopped |
+| Players have issues after a game patch | Keep the dedicated server version updated to match the game version |
 
 ---
 
